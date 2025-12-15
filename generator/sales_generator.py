@@ -26,6 +26,15 @@ class EfficientDatasetGeneratorPy2:
     """Python 2.7 compatible dataset generator"""
     
     def __init__(self):
+
+        # ============================================
+        # DATA CORRUPTION SETTINGS
+        # ============================================
+        self.BAD_ROW_PROBABILITY = 0.01   # 1% malformed rows
+
+
+
+
         # ============================================
         # CONFIGURATION - CITIES WITH WEIGHTS
         # ============================================
@@ -105,6 +114,46 @@ class EfficientDatasetGeneratorPy2:
         # Initialize random seed
         random.seed(time.time())
     
+    def generate_bad_row(self, start_date, end_date):
+        """
+        Generate a malformed row with an incorrect number of fields
+        """
+        dt = self.generate_datetime(start_date, end_date)
+        city = self.generate_city()
+        category = random.choice(self.category_list)
+        price = self.generate_price(category)
+        payment = self.generate_payment_method(price)
+
+        row_type = random.choice(['missing_field', 'extra_field', 'truncated'])
+
+        if row_type == 'missing_field':
+            # Only 4 fields (missing payment)
+            return "%s\t%s\t%s\t%s" % (
+                dt.strftime('%Y-%m-%d %H:%M'),
+                city,
+                category,
+                price
+            )
+
+        elif row_type == 'extra_field':
+            # 6 fields (extra garbage column)
+            return "%s\t%s\t%s\t%s\t%s\t%s" % (
+                dt.strftime('%Y-%m-%d %H:%M'),
+                city,
+                category,
+                price,
+                payment,
+                "EXTRA_FIELD"
+            )
+
+        else:
+            # Truncated line (1–2 fields only)
+                return "%s\t%s" % (
+                dt.strftime('%Y-%m-%d %H:%M'),
+                city
+            )
+
+
     def weighted_choice(self, choices, weights):
         """Python 2 compatible weighted random choice"""
         total = sum(weights)
@@ -172,14 +221,19 @@ class EfficientDatasetGeneratorPy2:
         return random_date.replace(hour=random_hour, minute=random_minute)
     
     def generate_row(self, start_date, end_date):
-        """Generate a single row as a tab-separated string"""
+        """Generate a single row, sometimes malformed"""
+    
+        # Inject malformed rows with small probability
+        if random.random() < self.BAD_ROW_PROBABILITY:
+            return self.generate_bad_row(start_date, end_date)
+
+        # Normal (correct) row
         dt = self.generate_datetime(start_date, end_date)
         city = self.generate_city()
         category = random.choice(self.category_list)
         price = self.generate_price(category)
         payment = self.generate_payment_method(price)
-        
-        # Format: YYYY-MM-DD HH:MM\tCity\tCategory\tPrice\tPayment
+
         return "%s\t%s\t%s\t%s\t%s" % (
             dt.strftime('%Y-%m-%d %H:%M'),
             city,
@@ -187,6 +241,7 @@ class EfficientDatasetGeneratorPy2:
             price,
             payment
         )
+
     
     def generate_to_file(self, num_rows, 
                         start_date='2020-01-01',
